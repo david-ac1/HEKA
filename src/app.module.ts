@@ -1,7 +1,9 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { createObserveModule } from '@nestjs/observe';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { ArcjetModule } from './lib/arcjet/arcjet.module';
+import { ArcjetMiddleware } from './common/middleware/arcjet.middleware';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -14,8 +16,13 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
       appSecret: 'YOUR_APP_SECRET',
       serviceId: 'HEKA',
     }),
+    ArcjetModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, ArcjetMiddleware],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(ArcjetMiddleware).forRoutes('*');
+  }
+}
