@@ -1,45 +1,52 @@
-# Memory — Arcjet Integration for HEKA NestJS
+# Memory — Arcjet + Prisma Integration for HEKA NestJS
 
 Last updated: 11/26/2026
 
 ## What was built
 
-Integrated Arcjet request protection into the HEKA NestJS 11 project. Files created:
-- `src/lib/arcjet/arcjet.service.ts` — ArcjetService wrapper initializing `arcjet()` with shield, detectBot, and fixedWindow rules; `protect()` method returns ArcjetDecision or null
-- `src/lib/arcjet/arcjet.module.ts` — `@Global()` ArcjetModule providing ArcjetService
-- `src/common/middleware/arcjet.middleware.ts` — ArcjetMiddleware (NestMiddleware) calling protect() on every request, returning 403 on denial, failing open on error
+**Arcjet** — Request protection integrated into HEKA NestJS 11:
+- `src/lib/arcjet/arcjet.service.ts` — ArcjetService with shield, detectBot, fixedWindow rules
+- `src/lib/arcjet/arcjet.module.ts` — `@Global()` ArcjetModule
+- `src/common/middleware/arcjet.middleware.ts` — Global middleware on all routes (`*`)
+
+**Prisma ORM 7** — Database ORM with Prisma Postgres:
+- `prisma/schema.prisma` — User and Post models with relation
+- `prisma7.config.ts` — Prisma config loading DATABASE_URL from .env
+- `prisma/migrations/20261126130536_init/` — Initial migration applied
+- `src/lib/database/prisma.service.ts` — PrismaService extending PrismaClient with PrismaPg adapter
+- `src/lib/database/prisma.module.ts` — `@Global()` PrismaModule
 
 Files modified:
-- `src/app.module.ts` — imports ArcjetModule, adds ArcjetMiddleware to providers, implements NestModule with `configure(consumer)` registering middleware globally on `*`
-- `src/main.ts` — removed inline middleware registration (moved to AppModule.configure)
-- `.env` — set real ARCJET_KEY (`ajkey_...`), fixed ARCJECT_ENV typo to ARCJET_ENV, ARCJET_MODE=DRY_RUN
+- `src/app.module.ts` — imports ArcjetModule + PrismaModule; removed ObserveModule
+- `src/main.ts` — removed ObserveInstrument
+- `.env` — ARCJET_KEY, ARCJET_ENV, ARCJET_MODE=LIVE, DATABASE_URL set
+- `package.json` — added prisma@7, @prisma/client@7, @prisma/adapter-pg@7, pg, dotenv, tsx, @types/pg
 
-Dependencies installed: `@arcjet/node`, `@nestjs/config`
+Dependencies installed: `@arcjet/node`, `@nestjs/config`, `prisma@7`, `@prisma/client@7`, `@prisma/adapter-pg@7`, `pg`, `dotenv`, `tsx`, `@types/pg`
 
-Arcjet site created (via MCP): site_01m8btxysdfecrrd2aay4jqe0w, key `ajkey_...` — all rules in DRY_RUN
+Arcjet site: site_01m8btxysdfecrrd2aay4jqe0w (all rules in DRY_RUN)
+Prisma Postgres: DATABASE_URL configured, migration `init` applied
 
 ## Decisions made
 
-- Code-defined rules (shield, bot, rate limit) in `arcjet()` call rather than remote rules — rules are version-controlled with code
-- Middleware registered via `AppModule implements NestModule` with `consumer.apply(ArcjetMiddleware).forRoutes('*')` — NestJS-standard, not `useGlobalMiddlewares` (doesn't exist)
-- All rules start in `DRY_RUN` mode — nothing blocked until explicitly promoted
-- Fail-open behavior: Arcjet errors allow requests through
+- Arcjet: code-defined rules, DRY_RUN mode, fail-open on error
+- Prisma: `@Global()` module per AGENTS.md, PrismaPg adapter for connection pooling
+- Removed `@nestjs/observe` — placeholder credentials caused 429 telemetry rate-limit error
 
 ## Problems solved
 
-- `@arcjet/node` exports `arcjet` (default factory function), not an `Arcjet` class — fixed import and instantiation
-- `useGlobalMiddlewares` does not exist on `INestApplication` — switched to `NestModule.configure()` pattern
-- `@nestjs/config` was not installed — installed and imported in ArcjetModule
-- Express `Request` is not directly assignable to `ArcjetNodeRequest` — cast via `req as unknown as ArcjetNodeRequest`
+- `@arcjet/node` exports `arcjet` factory function, not `Arcjet` class
+- `useGlobalMiddlewares` doesn't exist — used `NestModule.configure()` pattern
+- PrismaService import path: `../../generated/prisma/client.js` (from `src/lib/database/`)
 
 ## Current state
 
-TypeScript compiles with zero errors (`npx tsc --noEmit` passes). Arcjet is wired into every route via global middleware. All three rules (shield, bot, rate limit) are active in DRY_RUN mode. The app is not yet running to test end-to-end.
+TypeScript compiles with zero errors. Arcjet middleware active globally. Prisma ORM connected via PrismaPg adapter, migration applied, client generated. App not yet tested end-to-end with database.
 
 ## Next session starts with
 
-Run the app (`npm run start:dev`), make test requests, then use Arcjet MCP tools (`arcjet__list-requests`, `arcjet__analyze-traffic`) to review DRY_RUN decisions before promoting rules to LIVE.
+Test Prisma integration — inject PrismaService into a service/controller and perform CRUD operations on User/Post models.
 
 ## Open questions
 
-- Whether to migrate from code-defined rules to remote rules (managed via Arcjet dashboard) for runtime rule changes without redeploys
+- Whether to promote Arcjet rules from DRY_RUN to LIVE
