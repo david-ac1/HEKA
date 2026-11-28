@@ -25,7 +25,7 @@ Files modified:
 Dependencies installed: `@arcjet/node`, `@nestjs/config`, `prisma@7`, `@prisma/client@7`, `@prisma/adapter-pg@7`, `pg`, `dotenv`, `tsx`, `@types/pg`
 
 Arcjet site: site_01m8btxysdfecrrd2aay4jqe0w (all rules in DRY_RUN)
-Prisma Postgres: DATABASE_URL configured, migration `init` applied
+Prisma Postgres: DATABASE_URL (port 5432) + DIRECT_URL (port 5433) configured in `.env`; `prisma7.config.ts` uses DATABASE_URL; Prisma reads DIRECT_URL from `.env` for migrations; migration `init` applied
 
 ## Decisions made
 
